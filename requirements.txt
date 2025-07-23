@@ -1,0 +1,4 @@
+escpos
+Pillow
+netifaces
+bleak
