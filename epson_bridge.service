@@ -3,8 +3,8 @@ Description=Epson TM-m30 to ESC/POS Bridge
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /path/to/epson_to_escpos_bridge.py --printer-ip <YOUR_PRINTER_IP>
-WorkingDirectory=/path/to/
+ExecStart=/path/to/epson_bridge/venv/bin/python /path/to/epson_bridge/epson_to_escpos_bridge.py --printer-ip <YOUR_PRINTER_IP>
+WorkingDirectory=/path/to/epson_bridge
 Restart=always
 User=<your-username>
 
