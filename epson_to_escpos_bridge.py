@@ -19,20 +19,23 @@ import threading
 import time
 import queue
 import argparse
-from escpos.printer import Network
+from escpos.printer import Network, Usb
 
 # Import Epson emulator and graphics converter logic
 from mix import epson_emulator
 from mix import escpos_graphics_converter
 
 class BridgeEpsonToESCPOS:
-    def __init__(self, printer_ip, printer_port=9100, format="image"):
+    def __init__(self, format="image", printer_ip=None, printer_port=9100, vendor_id=None, product_id=None):
         self.print_queue = queue.Queue()
         self.printer_ip = printer_ip
         self.printer_port = printer_port
+        self.vendor_id = vendor_id
+        self.product_id = product_id
         self.emulator = None
         self.running = True
         self.format = format
+        self.connection_type = "network" if printer_ip else "usb"
 
     def on_print_job_complete(self, escpos_data):
         """Callback from Epson emulator when a print job is received"""
@@ -58,15 +61,23 @@ class BridgeEpsonToESCPOS:
         def run_worker():
             while self.running:
                 try:
-                    # Create printer connection
-                    printer = Network(
-                        host=self.printer_ip,
-                        port=self.printer_port,
-                        timeout=5
-                    )
+                    # Create printer connection based on connection type
+                    if self.connection_type == "network":
+                        printer = Network(
+                            host=self.printer_ip,
+                            port=self.printer_port,
+                            timeout=5
+                        )
+                        print(f"[Bridge] Connected to ESC/POS printer at {self.printer_ip}")
+                    else:  # USB connection
+                        printer = Usb(
+                            self.vendor_id,
+                            self.product_id
+                        )
+                        print(f"[Bridge] Connected to USB ESC/POS printer (VID: {self.vendor_id:04x}, PID: {self.product_id:04x})")
+                    
                     # Set printer capabilities
                     printer.profile.media_width_pixel = 576  # Standard width for 80mm thermal printers
-                    print(f"[Bridge] Connected to ESC/POS printer at {self.printer_ip}")
 
                     while self.running:
                         try:
@@ -122,8 +133,14 @@ class BridgeEpsonToESCPOS:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Epson TM-m30 to ESC/POS Bridge")
-    parser.add_argument("--printer-ip", required=True, help="IP address of the target ESC/POS printer")
-    parser.add_argument("--printer-port", type=int, default=9100, help="Port of the target ESC/POS printer")
+    # Printer connection options
+    connection_group = parser.add_mutually_exclusive_group(required=True)
+    connection_group.add_argument("--printer-ip", help="IP address of the target ESC/POS printer")
+    connection_group.add_argument("--usb", action="store_true", help="Use USB printer connection")
+    
+    parser.add_argument("--printer-port", type=int, default=9100, help="Port of the target ESC/POS printer (network only)")
+    parser.add_argument("--vendor-id", type=lambda x: int(x, 16), help="USB Vendor ID in hex (required for USB)")
+    parser.add_argument("--product-id", type=lambda x: int(x, 16), help="USB Product ID in hex (required for USB)")
     parser.add_argument("--format", choices=["image", "raw"], default="image", help="Print format: 'image' (convert to image) or 'raw' (direct ESC/POS)")
     parser.add_argument("--ip", default=None, help="Epson emulator IP address")
     parser.add_argument("--mac", default=None, help="Epson emulator MAC address")
@@ -131,9 +148,16 @@ if __name__ == "__main__":
     parser.add_argument("--gateway", default=None, help="Epson emulator gateway")
     args = parser.parse_args()
 
+    # Validate USB arguments if USB mode is selected
+    if args.usb:
+        if args.vendor_id is None or args.product_id is None:
+            parser.error("--vendor-id and --product-id are required when using USB connection")
+    
     bridge = BridgeEpsonToESCPOS(
+        format=args.format,
         printer_ip=args.printer_ip,
         printer_port=args.printer_port,
-        format=args.format
+        vendor_id=args.vendor_id,
+        product_id=args.product_id
     )
     bridge.run(ip=args.ip, mac=args.mac, netmask=args.netmask, gateway=args.gateway)
