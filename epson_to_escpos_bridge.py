@@ -79,6 +79,11 @@ class BridgeEpsonToESCPOS:
                     # Set printer capabilities
                     printer.profile.media_width_pixel = 576  # Standard width for 80mm thermal printers
 
+                    # Print ready message
+                    printer.text("Ready\n")
+                    printer.cut()
+                    print("[Bridge] Printed ready message")
+
                     while self.running:
                         try:
                             escpos_data = self.print_queue.get(timeout=1)
