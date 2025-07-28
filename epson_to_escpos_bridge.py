@@ -33,7 +33,6 @@ class BridgeEpsonToESCPOS:
         self.vendor_id = vendor_id
         self.product_id = product_id
         self.emulator = None
-        self.emulator_ip = None
         self.running = True
         self.format = format
         self.connection_type = "network" if printer_ip else "usb"
@@ -84,8 +83,8 @@ class BridgeEpsonToESCPOS:
                     # Print ready message
                     connection_method = f"Network ({self.printer_ip})" if self.connection_type == "network" else f"USB (VID: {self.vendor_id:04x}, PID: {self.product_id:04x})"
                     ready_message = f"Connected to printer via {connection_method}.\n"
-                    if self.emulator_ip:
-                        ready_message += f"Emulator running at {self.emulator_ip}\n"
+                    if self.emulator and self.emulator.ip:
+                        ready_message += f"Emulator running at {self.emulator.ip}\n"
                     printer.text(ready_message)
                     printer.cut()
                     print("[Bridge] Printed ready message")
