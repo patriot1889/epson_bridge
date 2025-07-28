@@ -33,6 +33,7 @@ class BridgeEpsonToESCPOS:
         self.vendor_id = vendor_id
         self.product_id = product_id
         self.emulator = None
+        self.emulator_ip = None
         self.running = True
         self.format = format
         self.connection_type = "network" if printer_ip else "usb"
@@ -52,6 +53,7 @@ class BridgeEpsonToESCPOS:
             # Use provided or default network info
             emulator = PatchedEpsonTM30Emulator(ip, mac, netmask, gateway)
             self.emulator = emulator
+            self.emulator_ip = ip  # Store the emulator IP
             emulator.start()
         t = threading.Thread(target=run_emulator, daemon=True)
         t.start()
@@ -80,7 +82,11 @@ class BridgeEpsonToESCPOS:
                     printer.profile.media_width_pixel = 576  # Standard width for 80mm thermal printers
 
                     # Print ready message
-                    printer.text("Ready\n")
+                    connection_method = f"Network ({self.printer_ip})" if self.connection_type == "network" else f"USB (VID: {self.vendor_id:04x}, PID: {self.product_id:04x})"
+                    ready_message = f"Connected to printer via {connection_method}.\n"
+                    if self.emulator_ip:
+                        ready_message += f"Emulator running at {self.emulator_ip}\n"
+                    printer.text(ready_message)
                     printer.cut()
                     print("[Bridge] Printed ready message")
 
