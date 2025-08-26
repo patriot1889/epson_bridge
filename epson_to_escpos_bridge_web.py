@@ -82,6 +82,8 @@ class WebInterface(BaseHTTPRequestHandler):
                 self.serve_main_page()
             elif self.path == '/api/status':
                 self.serve_status()
+            elif self.path.startswith('/static/'):
+                self.serve_static_file()
             elif self.path.startswith('/print_jobs/') and self.path.endswith('.png'):
                 self.serve_image()
             else:
@@ -123,6 +125,8 @@ class WebInterface(BaseHTTPRequestHandler):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Epson Printer Bridge</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/favicon.ico">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -409,6 +413,26 @@ class WebInterface(BaseHTTPRequestHandler):
         except Exception as e:
             logging.error(f"[WebServer] Error serving status: {e}")
             self.send_error(500)
+
+    def serve_static_file(self):
+        """Serve static files from static directory"""
+        filename = os.path.basename(self.path)
+        filepath = os.path.join('static', filename)
+        
+        if os.path.exists(filepath):
+            try:
+                with open(filepath, 'rb') as f:
+                    self.send_response(200)
+                    if filename.endswith('.ico'):
+                        self.send_header('Content-type', 'image/x-icon')
+                    self.send_header('Cache-Control', 'public, max-age=31536000')
+                    self.end_headers()
+                    self.wfile.write(f.read())
+            except Exception as e:
+                logging.error(f"[WebServer] Error serving static file: {e}")
+                self.send_error(500)
+        else:
+            self.send_error(404)
 
     def serve_image(self):
         """Serve image files from print_jobs directory"""
