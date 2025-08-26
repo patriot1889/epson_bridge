@@ -3,10 +3,11 @@ Description=Epson TM-m30 to ESC/POS Bridge
 
 [Service]
 Type=simple
-ExecStart=/path/to/epson_bridge/venv/bin/python /path/to/epson_bridge/epson_to_escpos_bridge.py --printer-ip <YOUR_PRINTER_IP>
-WorkingDirectory=/path/to/epson_bridge
+ExecStart=/home/admin/epson_bridge/venv/bin/python /home/admin/epson_bridge/epson_to_escpos_bridge.py --usb --vendor-id 0x0416 --product-id 0x5011 --format raw
+#ExecStart=/path/to/epson_bridge/venv/bin/python /path/to/epson_bridge/epson_to_escpos_bridge.py --printer-ip <YOUR_PRINTER_IP>
+WorkingDirectory=/home/admin/epson_bridge
 Restart=always
-User=<your-username>
+User=admin
 
 [Install]
 WantedBy=multi-user.target
