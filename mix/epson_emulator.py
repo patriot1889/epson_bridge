@@ -396,6 +396,7 @@ class EpsonTM30Emulator:
         try:
             self.escpos_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.escpos_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.escpos_socket.settimeout(1)  # 1 second timeout on accept
             self.escpos_socket.bind((self.ip, 9100))
             self.escpos_socket.listen(5)
             
@@ -403,7 +404,15 @@ class EpsonTM30Emulator:
             
             while self.running:
                 try:
-                    client_socket, addr = self.escpos_socket.accept()
+                    try:
+                        client_socket, addr = self.escpos_socket.accept()
+                    except socket.timeout:
+                        continue
+                    except Exception as e:
+                        if self.running:  # Only log error if we're still meant to be running
+                            logger.error(f"ESC/POS accept error: {e}")
+                        continue
+                        
                     logger.info(f"ESC/POS connection from {addr}")
                     
                     # Set printer as held by this client
@@ -419,10 +428,12 @@ class EpsonTM30Emulator:
                     client_thread.start()
                     
                 except Exception as e:
-                    logger.error(f"ESC/POS server error: {e}")
+                    if self.running:  # Only log error if we're still meant to be running
+                        logger.error(f"ESC/POS server error: {e}")
                     
         except Exception as e:
-            logger.error(f"Failed to start ESC/POS server: {e}")
+            if self.running:  # Only log error if we're still meant to be running
+                logger.error(f"Failed to start ESC/POS server: {e}")
     
     def handle_escpos_client(self, client_socket: socket.socket, addr):
         """Handle individual ESC/POS client connection"""
@@ -439,11 +450,13 @@ class EpsonTM30Emulator:
                 try:
                     data = client_socket.recv(4096)
                     if not data:
+                        logger.info(f"ESC/POS client {addr} disconnected")
                         break
                     
                     # Process ESC/POS command
                     should_continue = self.escpos.handle_command(data, client_socket)
                     if not should_continue:
+                        logger.info(f"ESC/POS client {addr} completed print job")
                         break
                         
                 except socket.timeout:
@@ -487,13 +500,26 @@ class EpsonTM30Emulator:
     
     def stop(self):
         """Stop the printer emulator"""
+        logger.info("Shutting down printer emulator...")
         self.running = False
         
-        if self.enpc_socket:
-            self.enpc_socket.close()
-        
+        # Close the server sockets to unblock accept() calls
         if self.escpos_socket:
-            self.escpos_socket.close()
+            try:
+                self.escpos_socket.shutdown(socket.SHUT_RDWR)
+                self.escpos_socket.close()
+            except Exception:
+                pass
+        
+        if self.enpc_socket:
+            try:
+                self.enpc_socket.close()
+            except Exception:
+                pass
+        
+        # Reset printer state
+        self.enpc.is_holding = False
+        self.enpc.holding_ip = "00000000"
         
         logger.info("Printer emulator stopped")
 
